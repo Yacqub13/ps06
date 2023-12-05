@@ -1,0 +1,270 @@
+---
+title: "ps06"
+author: "Yacqub Ahmed"
+date: "2023-12-03"
+output: html_document
+---
+
+#1 How is CO2 related to global temperature?
+
+#1.1 Scripps CO2 data
+
+#1.1.1
+```{r}
+library(tidyverse)
+library(ggplot2)
+sc <- read.delim("/Users/yacqubahmed/UW/info201/ps/scripps-co2.csv.bz2")
+
+colnames(sc)[colnames(sc) == "year"] <- "Year"
+
+selected_columns <- c('Year', 'month', 'co2')
+sc <- sc[selected_columns]
+
+head(sc)
+```
+
+
+#1.1.2
+```
+#It reprsents the CO2 measurement in a given year and month.
+```
+
+#1.1.3
+```
+#-99.99
+```
+
+#1.1.4
+```{r}
+min_year <- min(sc$Year, na.rm = TRUE)
+max_year <- max(sc$Year, na.rm = TRUE)
+
+cat("Time Period Covered by the 'sc' Dataset:\n")
+cat("  Year: ", min_year, " to ", max_year, "\n")
+```
+
+
+#1.1.5
+```{r}
+sc_yearly <- sc %>%
+  filter(co2 != -99.99) %>%
+  group_by(Year) %>%
+  summarize(avg_co2 = mean(co2, na.rm = TRUE))
+
+sc <- sc %>%
+  filter(co2 != -99.99)
+
+ggplot(sc, aes(x = Year, y = co2)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "CO2 Concentration Over Years",
+       x = "Year",
+       y = "CO2 Concentration (ppm)")
+```
+
+
+#1.1.6
+```
+#Yes it is increasing.
+```
+
+#1.2 HadCrut
+
+#1.2.1
+```{r}
+library(dplyr)
+hc <- read.delim("/Users/yacqubahmed/UW/info201/ps/hadcrut-5.0.1.0-annual.csv.bz2")
+
+head(hc)
+
+hc <- hc %>%
+  rename(Year = Time, Temperature_Anomaly = Anomaly..deg.C.)
+
+head(hc)
+```
+
+#1.2.2
+```
+# The global surface temperature in a year
+```
+
+#1.2.3
+#The dataset essentially provides a time series of annual temperature anomalies.
+```{r}
+min_year <- min(hc$Year)
+max_year <- max(hc$Year)
+
+cat("Time Period Covered: ", min_year, " to ", max_year, "\n")
+```
+
+
+#1.2.4
+```{r}
+pre_industrial_average <- mean(hc$Temperature_Anomaly[hc$Year <= 1900], na.rm = TRUE)
+
+hc$Anomaly_Pre_Industrial <- hc$Temperature_Anomaly - pre_industrial_average
+
+head(hc)
+
+pre_industrial_baseline_average <- mean(hc$Temperature_Anomaly[hc$Year >= 1961 & hc$Year <= 1990], na.rm = TRUE)
+
+cat("Pre-Industrial Baseline Average:", pre_industrial_baseline_average, "\n")
+```
+
+
+#1.2.5
+```{r}
+p0 <- ggplot(hc, aes(x = Year, y = Anomaly_Pre_Industrial)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Temperature Anomaly (deg C)",
+    title = "Global Surface Temperature Anomaly Over Time",
+    subtitle = "Anomaly relative to pre-industrial baseline"
+  )
+
+# Display the plot
+print(p0)
+```
+
+#1.2.6
+```
+It has increased gradually but also falling and rising. 
+```
+
+#1.3 How is global temperature related to CO2 levels?
+
+#1.3.1
+```
+#Year
+```
+#1.3.2
+
+#approach is to calculate annual averages or other summary statistics for the CO2 data on a yearly basis. 
+
+
+#1.3.3
+```{r}
+library(tidyr)
+hc <- hc %>%
+  mutate(Year = as.character(Year))
+
+sc <- sc %>%
+  mutate(Year = as.character(Year),
+         month = as.character(month))
+
+annual_co2 <- sc %>%
+  group_by(Year) %>%
+  summarize(avg_co2 = mean(co2, na.rm = TRUE))
+
+merged_data <- inner_join(hc, annual_co2, by = "Year")
+
+head(merged_data)
+
+```
+
+
+#1.3.4
+```{r}
+filtered_data <- merged_data %>%
+  filter(Year >= 1958)
+
+# Convert Year to numeric
+filtered_data$Year <- as.numeric(filtered_data$Year)
+
+trend_line <- lm(Anomaly_Pre_Industrial ~ Year, data = filtered_data)
+
+p <- ggplot(filtered_data, aes(x = Year, y = Anomaly_Pre_Industrial)) +
+  geom_point(aes(color = cut(Year, breaks = seq(1958, 2020, 5), labels = FALSE))) +
+  geom_smooth(method = "lm", color = "green", se = FALSE) +
+  geom_hline(yintercept = 1.5, linetype = "dashed", color = "blue") +
+  scale_color_gradientn(colors = c("darkblue", "blue", "cyan", "yellow", "orange", "darkorange", "red")) +
+  labs(
+    x = "Year",
+    y = "Temperature Anomaly (deg C)",
+    title = "CO2 - Temperature Anomaly Plot",
+    subtitle = "Anomaly relative to pre-industrial average",
+    color = "Decade",
+    caption = sprintf("Trend line: %.4f * Year + %.4f", coef(trend_line)[2], coef(trend_line)[1])
+  )
+
+print(p)
+```
+
+#2
+
+#2.1
+```{r}
+uah_data <- read.delim("/Users/yacqubahmed/UW/info201/ps/UAH-lower-troposphere-wide.csv.bz2")
+
+colnames(uah_data)[colnames(uah_data) == "year"] <- "Year"
+
+uah_selected <- uah_data %>%
+  select(Year, month, globe)
+
+head(uah_selected)
+
+```
+
+
+#2.2
+```{r}
+uah_data <- uah_data %>%
+  mutate(Year = as.character(Year),
+         month = as.character(month))
+
+uah_yearly <- uah_data %>%
+  group_by(Year) %>%
+  summarize(avg_globe = mean(globe, na.rm = TRUE))
+
+head(uah_yearly)
+```
+
+
+#2.3
+```{r}
+merged_data2 <- inner_join(hc, uah_yearly, by = "Year")
+
+selected_data2 <- merged_data2 %>%
+  select(Year, Anomaly_Pre_Industrial, avg_globe)
+
+head(selected_data2)
+```
+
+
+#2.4
+```
+wide form
+```
+
+#2.5
+```{r}
+long_data2 <- selected_data2 %>%
+  pivot_longer(cols = c("Anomaly_Pre_Industrial", "avg_globe"),
+               names_to = "type",
+               values_to = "anomaly")
+
+head(long_data2)
+```
+
+
+#2.6
+```{r}
+p2 <- ggplot(long_data2, aes(x = Year, y = anomaly, color = type)) +
+  geom_point() +
+  geom_smooth(aes(group = type), method = "lm", se = FALSE) +
+  labs(
+    x = "Year",
+    y = "Temperature Anomaly",
+    title = "Temperature Anomaly Over Years",
+    color = "Type",
+    caption = "Trend lines represent linear regression for each type"
+  )
+
+# Display the plot
+print(p2)
+```
+
+
+
+
